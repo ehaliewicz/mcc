@@ -159,11 +159,11 @@ tok get_sym_token() {
   }
   
   add_char('\0');
-  tok types[] = {TOK_INT, TOK_CHAR, TOK_IF, TOK_ELSE, TOK_WHILE};
+  tok keywords[] = {TOK_INT, TOK_CHAR, TOK_IF, TOK_ELSE, TOK_WHILE, TOK_RETURN};
   char* strs[] = {"int", "char","if", "else", "while", "return"};
   for(unsigned int i = 0; i < (sizeof(strs)/sizeof(char*)); i++) {
     if(streq(tok_sym, strs[i])) {
-      return types[i];
+      return keywords[i];
     }
   }
   return TOK_SYMBOL;
@@ -813,11 +813,17 @@ tok param() {
 }
 
 void statement();
+void statement_with_returns();
+
 
 void block() {
   match_tok(TOK_LBRACE);
   while(look_tok != TOK_RBRACE) {
-    statement();
+    if(cur_sym_tab != global_sym_tab) {
+      statement_with_returns();
+    } else {
+      statement();
+    }
   }
   match_tok(TOK_RBRACE);
 }
@@ -862,8 +868,9 @@ void func_decl(char* name, tok type) {
 
   // initialize parameter bindings and check types of arguments
   for(int i = num_args-1; i >= 0; i--) {
-    emit_int(CHKTYPE_POPENV);
-    emit_int(types[i] == TOK_INT ? INT : CHAR);
+    //emit_int(CHKTYPE_POPENV);
+    //emit_int(types[i] == TOK_INT ? INT : CHAR);
+    emit_opcode(POPENV);
     emit_int(i);
   }
   
@@ -953,8 +960,22 @@ void if_statement() {
   
 }
 
+void return_statement() {
+  match_tok(TOK_RETURN);
+  expression();
+  emit_opcode(RET);
+  match_tok(TOK_SEMICOL);
+}
+
+void statement_with_returns() {
+  if(look_tok == TOK_RETURN) {
+    return_statement();
+  } else {
+    statement();
+  }
+}
+
 void statement() {
-  
   if(look_tok == TOK_SYMBOL) {
     
     char* sym_name = strdup(tok_sym);
@@ -997,6 +1018,8 @@ void statement() {
   }
 
 }
+
+
 
 void program() {
 
@@ -1087,6 +1110,8 @@ void execute_program() {
       break;
     case RET:
       pc = rstack[--rsp];
+      if(cur_env->parent == NULL) { printf("Attempt to return from global scope\n"); exit(1); }
+      cur_env = cur_env->parent;
       break;
     case MKENV:
       do {
@@ -1223,7 +1248,7 @@ void execute_program() {
       break;
 
     case PUTC:
-      printf("%c", stack[--sp].i);
+      printf("%c", stack[--sp].c);
       break;
 
     case READ:
