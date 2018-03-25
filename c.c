@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,8 +11,12 @@ int buf_sz = 0;
 char* buf = NULL;
 
 void read_file(char* file) {
-    
+
   FILE *f = fopen(file, "rb");
+  if(!f) {
+    printf("Error opening file '%s': %s\n", file, strerror(errno)); 
+    exit(1);
+  }
   fseek(f, 0, SEEK_END);
   long fsize = ftell(f);
   fseek(f, 0, SEEK_SET);
@@ -270,17 +275,18 @@ typedef enum {
 
 
 #define OPCODES						\
-  X(LIT, 1) X(DROP, 0)					\
+  X(LIT, 1) X(DROP, 0) X(SWAP, 0)			\
   X(POPENV, 1) X(PUSHENV, 1)				\
   X(CALL, 1) X(RET, 0)					\
   X(MKENV, 1) X(EXTEND_ENV, 0)				\
   X(POP_EXTEND_ENV, 0)					\
-  X(CHKTYPE_POPENV, 2) X(DROPENV, 0)			\
+  X(CHKTYPE_POPENV, 2)					\
   X(ADD, 0) X(SUB, 0)   X(NEG, 0)			\
   X(MUL, 0) X(DIV, 0)   X(MOD, 0)			\
   X(IOR, 0) X(XOR, 0)   X(AND, 0)			\
-  X(NOT, 0) X(BRA, 1)   X(BEQ, 1)			\
-  X(CMP, 0) X(TST, 0) X(BGT, 1)				\
+  X(NOT, 0)						\
+  X(BRA, 1) X(BNE, 1) X(BEQ, 1)				\
+  X(CMP, 0)						\
   X(PRINT, 0) X(PUTC, 0)				\
   X(READ, 0) X(READC, 0)				\
   X(HALT, 0)
@@ -420,16 +426,22 @@ sym_tab *cur_sym_tab;
 
 // returns NULL if does not exist
 sym* find_sym(char* name) {
+  
   for(int i = 0; i < cur_sym_tab->num_syms; i++) {
     if(streq(cur_sym_tab->syms[i].name, name)) {
       return &cur_sym_tab->syms[i];
+    }
+  }
+  for(int i = 0; i < global_sym_tab->num_syms; i++) {
+    if(streq(global_sym_tab->syms[i].name, name)) {
+      return &global_sym_tab->syms[i];
     }
   }
   return NULL;
 }
 
 
-void add_sym(char* name, binding_type func_or_var,
+sym* add_sym(char* name, binding_type func_or_var,
 	     int func_num_args,
 	     tok type, int code_addr) {
   
@@ -457,20 +469,21 @@ void add_sym(char* name, binding_type func_or_var,
   s->resolve_addrs = NULL;
 
   cur_sym_tab->num_syms++;
+  return s;
 }
 
-void add_var(char* name, tok tok_type) {
-  add_sym(name, VAR, -1, tok_type, -1);
+sym* add_var(char* name, tok tok_type) {
+  return add_sym(name, VAR, -1, tok_type, -1);
 }
 
-void add_func(char* name, int num_args, tok tok_type, int code_addr) {
-  add_sym(name, FUNC, num_args, tok_type, code_addr);
+sym* add_func(char* name, int num_args, tok tok_type, int code_addr) {
+  return add_sym(name, FUNC, num_args, tok_type, code_addr);
 }
 
 sym* find_existing_sym(char* name) {
   sym* s = find_sym(name);
   if(s == NULL) {
-    printf("'%s' is not defined.\n", name);
+    printf("%i:%i - '%s' is not defined.\n", line, col, name);
     exit(1);
   }
   return s;
@@ -674,39 +687,30 @@ void addexpr() {
 }
 
 
-void cmp_func(tok type, opcode branch_inst, int cc_is_true) {
-  match_tok(type);
+void eq() {
+  match_tok(TOK_EQ);
   addexpr();
   emit_opcode(CMP);
-  int bne_loc = emit_opcode(branch_inst);
-  int bne_target_loc = emit_int(0xDEAD);
-  emit_opcode(LIT);
-  emit_int(cc_is_true ? 0 : 1);
-  int bra_loc = emit_opcode(BRA);
-  int bra_target_loc = emit_opcode(0xDEAD);
-  int bne_target = emit_opcode(LIT);
-  emit_int(cc_is_true ? 1 : 0);
-  int bra_target = get_cur_addr();
-  
-  patch_int_at(bne_target_loc, bne_target-bne_loc);
-  patch_int_at(bra_target_loc, bra_target-bra_loc);
-  
-}
-
-void eq() {
-  cmp_func(TOK_EQ, BEQ, 1);
 }
 
 void neq() {
-  cmp_func(TOK_NEQ, BEQ, 0);
+  match_tok(TOK_NEQ);
+  addexpr();
+  emit_opcode(CMP);
+  emit_opcode(NOT);
 }
 
 void gt() {
-  cmp_func(TOK_GT, BGT, 1);
+  match_tok(TOK_GT);
+  addexpr();
+  emit_opcode(SUB);
 }
 
 void lt() {
-  cmp_func(TOK_LT, BGT, 0);
+  match_tok(TOK_LT);
+  addexpr();
+  emit_opcode(SWAP);
+  emit_opcode(SUB);
 }
 
 void relexpr() {
@@ -768,16 +772,18 @@ void expression() {
 
 void var_decl(char* var_name, tok tok_type) {
   
-  add_var(var_name, tok_type);
+  sym* s = add_var(var_name, tok_type);
   
   if(look_tok == TOK_SEMICOL) {
     match_tok(TOK_SEMICOL);
     emit_opcode(EXTEND_ENV);
   } else {
     match_tok(TOK_EQ);
+    emit_opcode(EXTEND_ENV);
     expression();
     match_tok(TOK_SEMICOL);
-    emit_opcode(POP_EXTEND_ENV);
+    emit_opcode(POPENV);
+    emit_int(s->env_idx);
   }
   
 }
@@ -807,6 +813,7 @@ tok param() {
     match_tok(TOK_SYMBOL);
     add_var(name, type);
   } else {
+    printf("wtf\n");
     expected("type");
   }
   return type;
@@ -846,19 +853,26 @@ void func_decl(char* name, tok type) {
 
   int num_args = 0;
   tok* types = NULL;
-  
-  
-  while(look_tok != TOK_EOF) {
-    tok type = param();
 
-    types = realloc(types, sizeof(tok) * num_args+1);
-    types[num_args++] = type;
+  
+  if(look_tok != TOK_RPAREN) {
+        
+    while(look_tok != TOK_EOF) {
     
-    if(look_tok == TOK_RPAREN) {
-      break;
+    
+      tok type = param();
+     
+      types = realloc(types, sizeof(tok) * num_args+1);
+      types[num_args++] = type;
+
+      if(look_tok == TOK_RPAREN) {
+	break;
+      }
+      
+      match_tok(TOK_COMMA);
     }
-    match_tok(TOK_COMMA);
   }
+
   
   match_tok(TOK_RPAREN);
 
@@ -882,7 +896,6 @@ void func_decl(char* name, tok type) {
   block();
   
   // drop environment frame and return
-  emit_opcode(DROPENV);
   emit_opcode(RET);
   
   int jmp_target = get_cur_addr();
@@ -906,8 +919,7 @@ void while_statement() {
   
   match_tok(TOK_RPAREN);
   
-  emit_opcode(TST);
-  int test_loc = emit_opcode(BEQ);
+  int test_loc = emit_opcode(BNE);
   int test_target_loc = emit_int(0xDEAD);
 
   block();
@@ -925,8 +937,7 @@ void if_statement() {
   expression();
   match_tok(TOK_RPAREN);
   
-  emit_opcode(TST);
-  int jmp_else_loc = emit_opcode(BEQ);
+  int jmp_else_loc = emit_opcode(BNE);
   int jmp_else_target_loc = emit_int(0xDEAD);
 
   block();
@@ -1066,9 +1077,6 @@ env *cur_env = NULL;
 void execute_program() {
   int pc = 0;
 
-  int eq_flag = 0;
-  int gt_flag = 0;
-
   
   while(pc < program_size) {
     opcode code = program_bytes[pc++];
@@ -1083,6 +1091,14 @@ void execute_program() {
       break;
     case DROP:
       sp--;
+      break;
+    case SWAP:
+      do {
+	cell a = stack[--sp];
+	cell b = stack[--sp];
+	stack[sp++] = a;
+	stack[sp++] = b;
+      } while(0);
       break;
     case POPENV:
       do {
@@ -1155,16 +1171,6 @@ void execute_program() {
       } while(0);
       break;
       
-    case DROPENV:
-      do {
-	if(cur_env == NULL) {
-	  printf("Attempted to drop a null environment.\n");
-	  exit(1);
-	}
-	cur_env = cur_env->parent;
-      } while(0);
-      break;
-
       case ADD:
 	do {
 	  int b = stack[--sp].i;
@@ -1178,6 +1184,14 @@ void execute_program() {
 	int b = stack[--sp].i;
 	int a = stack[--sp].i;
 	stack[sp++].i = a - b;
+      } while(0);
+      break;
+
+    case MOD:
+      do {
+	int b = stack[--sp].i;
+	int a = stack[--sp].i;
+	stack[sp++].i = a % b;
       } while(0);
       break;
 
@@ -1204,23 +1218,21 @@ void execute_program() {
       } while(0);
       break;
 
-    case BGT:
+    case BNE:
       do {
-	int branch_val = gt_flag;
-	int base = pc-1;
+      	int base = pc-1;
 	int rel_off = program_bytes[pc++];
-	if(branch_val) {
+	if(stack[--sp].i == 0) {
 	  pc = base + rel_off;
 	}
       } while(0);
       break;
-      
+
     case BEQ:
       do {
-	int branch_val = eq_flag;
-      	int base = pc-1;
+	int base = pc-1;
 	int rel_off = program_bytes[pc++];
-	if(branch_val) {
+	if(stack[--sp].i != 0) {
 	  pc = base + rel_off;
 	}
       } while(0);
@@ -1230,19 +1242,10 @@ void execute_program() {
       do {
 	int val_b = stack[--sp].i;
 	int val_a = stack[--sp].i;
-	eq_flag = (val_a == val_b);
-	gt_flag = (val_a > val_b);
+	stack[sp++].i = (val_b == val_a) ? 1 : 0;
       } while(0);
       break;
 
-    case TST:
-      do {
-	int val = stack[--sp].i;
-	eq_flag = (val == 0);
-	gt_flag = (val > 0);
-      } while(0);
-      break;
-      
     case PRINT:
       printf("%i", stack[--sp].i);
       break;
