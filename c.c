@@ -286,7 +286,7 @@ typedef enum {
   X(IOR, 0) X(XOR, 0)   X(AND, 0)			\
   X(NOT, 0)						\
   X(BRA, 1) X(BNE, 1) X(BEQ, 1)				\
-  X(CMP, 0)						\
+  X(CMP, 0) X(CGT, 0) X(CLT, 0)				\
   X(PRINT, 0) X(PUTC, 0)				\
   X(READ, 0) X(READC, 0)				\
   X(HALT, 0)
@@ -629,17 +629,13 @@ void term1() {
   while (is_mulop(look_tok)) {
     switch(look_tok) {
     case TOK_MULT:
-      multiply();
-      break;
+      return multiply();
     case TOK_DIV:
-      divide();
-      break;
+      return divide();
     case TOK_MOD:
-      mod();
-      break;
+      return mod();
     default:
       expected("Mulop");
-      break;
     }
   }
 }
@@ -674,14 +670,11 @@ void addexpr() {
   while (is_addop(look_tok)) {
     switch(look_tok) {
     case TOK_PLUS:
-      add();
-      break;
+      return add();
     case TOK_MINUS:
-      sub();
-      break;
+      return sub();
     default:
       expected("Addop");
-      break;
     }
   }
 }
@@ -703,14 +696,13 @@ void neq() {
 void gt() {
   match_tok(TOK_GT);
   addexpr();
-  emit_opcode(SUB);
+  emit_opcode(CGT);
 }
 
 void lt() {
   match_tok(TOK_LT);
   addexpr();
-  emit_opcode(SWAP);
-  emit_opcode(SUB);
+  emit_opcode(CLT);
 }
 
 void relexpr() {
@@ -719,20 +711,15 @@ void relexpr() {
   while(is_relop(look_tok)) {
     switch(look_tok) {
     case TOK_EQ:
-      eq();
-      break;
+      return eq();
     case TOK_NEQ:
-      neq();
-      break;
+      return neq();
     case TOK_GT:
-      gt();
-      break;
+      return gt();
     case TOK_LT:
-      lt();
-      break;
+      return lt();
     default:
       expected("Relop");
-      break;
     }
   }
 }
@@ -756,15 +743,11 @@ void expression() {
   while(is_boolop(look_tok)) {
     switch(look_tok) {
     case TOK_BOR:
-      
-      bor();
-      break;
+      return bor();
     case TOK_BAND:
-      band();
-      break;
+      return band();
     default:
       expected("Boolop");
-      break;
     }
   }
 }
@@ -997,6 +980,7 @@ void statement() {
     
     if (look_tok == TOK_LPAREN) {
       func_call(sym_name);
+      emit_opcode(DROP);
       match_tok(TOK_SEMICOL);
     } else if (look_tok == TOK_ASSIGN) {
       var_assign(sym_name);
@@ -1181,8 +1165,10 @@ void execute_program() {
 
     case SUB:
       do {
+	
 	int b = stack[--sp].i;
 	int a = stack[--sp].i;
+	printf("subtracting %i from %i\n", b, a);
 	stack[sp++].i = a - b;
       } while(0);
       break;
@@ -1243,6 +1229,31 @@ void execute_program() {
 	int val_b = stack[--sp].i;
 	int val_a = stack[--sp].i;
 	stack[sp++].i = (val_b == val_a) ? 1 : 0;
+      } while(0);
+      break;
+
+    case CLT:
+      do {
+	int val_b = stack[--sp].i;
+	int val_a = stack[--sp].i;
+	stack[sp++].i = (val_a < val_b) ? 1 : 0;
+      } while(0);
+      break;
+
+      
+
+    case CGT:
+      do {
+	int val_b = stack[--sp].i;
+	int val_a = stack[--sp].i;
+	stack[sp++].i = (val_a > val_b) ? 1 : 0;
+      } while(0);
+      break;  
+
+    case NOT:
+      do {
+	int a = stack[--sp].i;
+	stack[sp++].i = !a;
       } while(0);
       break;
 

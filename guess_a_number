@@ -1,0 +1,58 @@
+int space() {
+  putc(32);
+}
+int nl() {
+  putc(10);
+}
+
+int print_higher() {
+  putc(116);
+  putc(111);
+  putc(111);
+
+  space();
+  
+  putc(104);
+  putc(105);
+  putc(103);
+  putc(104);
+
+  nl();
+  
+  return 0;
+}
+
+int print_lower() {
+  putc(116);
+  putc(111);
+  putc(111);
+
+  space();
+
+  putc(108);
+  putc(111);
+  putc(119);
+
+  nl();
+  
+  return 0;
+}
+
+int number = 12;
+
+int get_number() {
+  putc(62);
+  putc(32);
+  return read();
+}
+
+int guess = get_number();
+
+while(guess != number) {
+   if(guess < number) {
+     print_lower();
+   } else {
+     print_higher();
+   }
+   guess <- get_number();
+}
