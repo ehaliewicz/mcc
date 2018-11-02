@@ -440,12 +440,21 @@ sym* find_sym(char* name) {
   return NULL;
 }
 
+sym* find_sym_in_cur_env(char* name) {
+  for(int i = 0; i < cur_sym_tab->num_syms; i++) {
+    if(streq(cur_sym_tab->syms[i].name, name)) {
+      return &cur_sym_tab->syms[i];
+    }
+  }
+  return NULL;
+}
+
 
 sym* add_sym(char* name, binding_type func_or_var,
 	     int func_num_args,
 	     tok type, int code_addr) {
   
-  if(find_sym(name) != NULL) {
+  if(find_sym_in_cur_env(name) != NULL) {
     printf("Variable '%s' declared more than once.\n", name);
     exit(1);
   }
