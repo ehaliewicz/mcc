@@ -5,23 +5,37 @@ Compiler for a tiny c-like language, in one file.
 ## syntax
 Supports simplified c-like syntax (with a few deviations) for function declarations, variable declarations and assignments, if statements, while loops, and recursive function calls.
 ```
-	;;; fibonacci program
-	
-int fib(int cnt, int a, int b) {
-  if(cnt = 0) {
-    return a;
-  } else {
-    return fib(cnt-1, b, a+b);
-  }
+int fib(int cnt) {
+    if(cnt < 2) {
+        return cnt;
+    } else {
+        return fib(cnt-2) + fib(cnt-1);
+    }
 }
 
-
 int nl = 10;
-int a = fib(read(),0,1);   ;; read an integer
+int i = read();
+int a = fib(i);
 
-print(a);				   ;; print result and newline
+print(a);
 putc(nl);
 
+
+int fib_iter(int cnt) {
+    int a = 0;
+    int b = 1;
+    while(cnt > 0) {
+        int c = a+b;
+	a <- b;
+        b <- c;
+        cnt <- cnt-1;
+    }
+    return a;
+}
+
+a <- fib_iter(i);
+print(a);
+putc(nl);
 ```
 
 ## usage
