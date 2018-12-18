@@ -45,7 +45,6 @@ void consume() {
     } else {
       col++;
     }
-    
   }
 }
 
@@ -151,7 +150,6 @@ int is_punctuation(char c) {
 
 tok get_sym_token() {
   
-  
   if(!isalpha(look)) {
     expected("Symbol");
   }
@@ -180,9 +178,6 @@ tok get_token() {
   
   char* pos = strchr(single_char_tok_str, look);
 
-  
-  
-  
   if(pos != NULL) {
     consume();
     tok token = pos - single_char_tok_str;
@@ -1034,8 +1029,7 @@ void program() {
     statement();
   }
 
-  emit_opcode(HALT);
-  
+  emit_opcode(HALT);  
 }
 
 
@@ -1070,7 +1064,6 @@ env *cur_env = NULL;
 void execute_program() {
   int pc = 0;
 
-  
   while(pc < program_size) {
     opcode code = program_bytes[pc++];
 
@@ -1304,7 +1297,6 @@ int main(int argc, char** argv) {
   // -g/-d -> disassembled output
   // -b    -> binary output
 
-
   if(argc < 2) {
     printf("usage: c input_file [-d/--disassemble] [-e/--execute]\n");
     exit(1);
@@ -1340,6 +1332,6 @@ int main(int argc, char** argv) {
     execute_program();
   } else {
     print_program(disassemble);
-  }
-    
+  }   
+
 }
