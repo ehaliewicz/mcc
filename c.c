@@ -1318,15 +1318,11 @@ int main(int argc, char** argv) {
       exit(1);
     }
   }
-
   
   read_file(file);
-  
   init();
   init_tok();  
   program();
-  
-  
 
   if(execute) {
     if(disassemble) {
