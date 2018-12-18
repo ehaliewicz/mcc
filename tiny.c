@@ -375,7 +375,7 @@ void print_program(int disassemble) {
     printf("----------------------------------\n\n");
     
   } else {
-    printf("writing\n");
+    //printf("writing\n");
     fwrite(program_bytes, sizeof(int), program_size, stdout);
 
   }
@@ -440,12 +440,21 @@ sym* find_sym(char* name) {
   return NULL;
 }
 
+sym* find_sym_in_cur_env(char* name) {
+  for(int i = 0; i < cur_sym_tab->num_syms; i++) {
+    if(streq(cur_sym_tab->syms[i].name, name)) {
+      return &cur_sym_tab->syms[i];
+    }
+  }
+  return NULL;
+}
+
 
 sym* add_sym(char* name, binding_type func_or_var,
 	     int func_num_args,
 	     tok type, int code_addr) {
   
-  if(find_sym(name) != NULL) {
+  if(find_sym_in_cur_env(name) != NULL) {
     printf("Variable '%s' declared more than once.\n", name);
     exit(1);
   }
@@ -1168,7 +1177,6 @@ void execute_program() {
 	
 	int b = stack[--sp].i;
 	int a = stack[--sp].i;
-	printf("subtracting %i from %i\n", b, a);
 	stack[sp++].i = a - b;
       } while(0);
       break;
