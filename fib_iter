@@ -1,0 +1,31 @@
+int fib(int cnt) {
+    if(cnt < 2) {
+        return cnt;
+    } else {
+        return fib(cnt-2) + fib(cnt-1);
+    }
+}
+
+int nl = 10;
+int i = read();
+int a = fib(i);
+
+print(a);
+putc(nl);
+
+
+int fib_iter(int cnt) {
+    int a = 0;
+    int b = 1;
+    while(cnt > 0) {
+        int c = a+b;
+	a <- b;
+        b <- c;
+        cnt <- cnt-1;
+    }
+    return a;
+}
+
+a <- fib_iter(i);
+print(a);
+putc(nl);
