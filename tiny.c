@@ -260,7 +260,7 @@ void match_tok(tok t) {
 
 
 
-/*--------- code generation ---------*/
+/*--------- CODE GENERATION ---------*/
 
 
 typedef enum {
@@ -269,6 +269,7 @@ typedef enum {
 } runtime_type;
 
 
+// stack machine opcodes
 #define OPCODES						\
   X(LIT, 1) X(DROP, 0) X(SWAP, 0)			\
   X(POPENV, 1) X(PUSHENV, 1)				\
@@ -370,7 +371,7 @@ void print_program(int disassemble) {
     printf("----------------------------------\n\n");
     
   } else {
-    //printf("writing\n");
+
     fwrite(program_bytes, sizeof(int), program_size, stdout);
 
   }
@@ -1019,7 +1020,6 @@ void statement() {
 }
 
 
-
 void program() {
 
   emit_opcode(MKENV);
@@ -1031,6 +1031,11 @@ void program() {
 
   emit_opcode(HALT);  
 }
+
+
+/*-----------------------------------*/
+
+/*---- RUNTIME & VIRTUAL MACHINE ----*/
 
 
 typedef struct {
