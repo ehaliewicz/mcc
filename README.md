@@ -1,7 +1,7 @@
 
 # mcc - A Mini C-like Compiler
 
-Compiler for a very small c-like language, in one file.
+Compiler for a very small c-like language.
 
 ## syntax
 Supports simplified c-like syntax (with a few deviations) for function declarations, variable declarations and assignments, if statements, while loops, and recursive function calls.
