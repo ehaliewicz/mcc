@@ -44,7 +44,7 @@ putc(nl);
 ```
  -e/---execute      ; executed compiled bytecode immediately
  -d/---disassemble  ; show disassembled bytecode
- ; no option will immediately print bytecode to the terminal,
+ ; providing no option will immediately print compiled bytecode (in binary) to the terminal,
  ; this is mostly for debugging purposes
 ```
 #### examples
@@ -65,7 +65,7 @@ too high
 too high
 > 12
   
-./c fib -d
+./mcc fib -d
 ---- compiled output: 65 bytes ----
 ;;; this is just an excerpt of the whole program
 0x000c: PUSHENV 0x0000/0
