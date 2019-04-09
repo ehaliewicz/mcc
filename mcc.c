@@ -801,7 +801,6 @@ tok param() {
     match_tok(TOK_SYMBOL);
     add_var(name, type);
   } else {
-    printf("wtf\n");
     expected("type");
   }
   return type;
@@ -870,6 +869,7 @@ void func_decl(char* name, tok type) {
 
   // initialize parameter bindings and check types of arguments
   for(int i = num_args-1; i >= 0; i--) {
+    
     //emit_int(CHKTYPE_POPENV);
     //emit_int(types[i] == TOK_INT ? INT : CHAR);
     emit_opcode(POPENV);
