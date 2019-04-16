@@ -1,0 +1,27 @@
+
+int fizz() {
+  int a = 1;
+  
+  while(a < 100) {
+    int modcheck = 0;
+    if(a % 3 = 0) {
+      modcheck <- 1;
+      putc(102); putc(105); putc(122); putc(122);
+    }
+
+    if(a % 5 = 0) {
+      modcheck <- 1;
+      putc(98); putc(117); putc(122); putc(122);
+    }
+
+    if(modcheck = 0) {
+      print(a);
+    }
+    
+    putc(10);
+    a <- a+1;
+  }
+  return a;
+}
+
+fizz();
