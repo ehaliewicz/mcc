@@ -8,16 +8,16 @@ int main() {
   a[5] = 'e';
   a[6] = 'f';
   a[7] = 10;
-
+  a[8] = 0;
   int i = 0;
-  int valid = 1;
+  
 
   // print string
-  while(valid == 1) {
-    putchar(a[i]);
+  while(i < 12) {
     if(a[i] == 0) {
-      valid = 0;
+      break;
     }
+    putchar(a[i]);
     i = i+1;
   }
 }

@@ -67,10 +67,10 @@ void puth(int i) {
 
 int slen(char* s) {
   int i = 0;
-  int valid = 1;
-  while(valid == 1) {
+
+  while(1) {
     if(s[i] == 0) {
-      valid = 0;
+      break;
     }
     i = i + 1;
   }
@@ -83,13 +83,14 @@ char* sdup(char* str) {
   char* res = malloc(bytes+1);
 
   int i = 0;
+  
   while(i < bytes) {
     res[i] = str[i];
-    i = i+1;
-    
+    i = i+1;    
   }
-  str[i] = 0; // null terminator
 
+  res[bytes] = 0; // null terminator
+  
   return res;
     
 }
@@ -99,15 +100,20 @@ int streq(char* name, char* test) {
   int eq = 1;
   int valid = 1;
 
+  int i = 0;
   while(valid == 1) {
-    if(*name != *test) {
-      valid = 0;
+    
+    if(name[i] != test[i]) {
       eq = 0;
-    } else if (*name == 0) {
-      valid = 0;
+      break;
     }
-    name = name+1;
-    test = test+1;
+    if (name[i] == 0) {
+      break;
+    }
+    if(test[i] == 0) {
+      break;
+    }
+    i = i+1;
   }
   return eq;
 }
@@ -133,14 +139,15 @@ int ptr = 0;
 
 
 void consume() {
-  if(ptr >= buf_sz) {
+  if(ptr > (buf_sz-1)) {
     look = -1;
   } else {
-    look = buf[ptr++];
+    look = buf[ptr];
+    ptr = ptr+1;
     if(look == nl) {
-      col = 1; line++;
+      col = 1; line = line+1;
     } else {
-      col++;
+      col = col+1;
     }
   }
 }
@@ -149,7 +156,6 @@ void init() {
   consume();
 }
 
-void expected(char* str) __attribute__((noreturn));
 
 void expected(char* str) {
   puti(line);
@@ -161,16 +167,32 @@ void expected(char* str) {
 }
 
 int is_space(char c) {
-  return (c <= 32) && (c != EOF);
+  if(c < 0) {
+    return 0;
+  }
+  return (c < 33);
 }
 
 int is_alpha(char c) {
-  return ((c >= 65 && c <= 91) ||
-	  (c >= 97 && c <= 122));
+  if(c > 64) {
+    if (c < 91) {
+      return 1;
+    }
+    if(c > 96) {
+      if (c < 123) {
+	return 1;
+      }
+    }
+  }
+
+  return 0;
 }
 
 int is_digit(char c) {
-  return (c >= 48 && c <= 57); 
+  if(c > 47) {
+    return (c < 58);
+  }
+  return 0;
 }
 
 void skip_whitespace() {
@@ -185,6 +207,104 @@ void read_until_next_line() {
   }
   consume();
 }
+
+
+int grow(int i){
+  if(i < 8) {
+    return 8;
+  } else {
+    return i * 2;
+  }  
+}
+
+
+
+// stack machine opcodes
+
+int LIT = 0; int DROP = 1;
+int SWAP = 2; int POPENV = 3;
+int PUSH_ENV = 4; int CALL = 5;
+int RET = 6; int MKENV = 7;
+int EXTEND_ENV = 8; int ADD = 9;
+int SUB = 10; int NEG = 11;
+int MUL = 12; int DIV = 13;
+int MOD = 14; int IOR = 15;
+int XOR = 16; int AND = 17;
+int NOT = 18; int BRA = 19; 
+int BNE = 20; int BEQ = 21; 
+int CMP = 22; int CGT = 23; 
+int CLT = 24;
+int PUTCHAR = 25; int GETCHAR = 26;
+int ALLOC = 26; int REALLOC = 27; int DEALLOC = 28;
+int MSET = 29; int MGET = 30;
+int OPEN = 31; int READ = 32;
+int CLOSE = 33; int EXIT = 34;
+
+
+char* opcode_names = "LIT_ DROP_ SWAP_ POPENV_ PUSH_ENV_ CALL_ RET_ MKENV_ EXTEND_ENV_ ADD_ SUB_ NEG_ MUL_ DIV_ MOD_ IOR_ XOR_ AND_ NOT_ BRA_ BNE_ BEQ_ CMP_ CGT_ CLT_ PUTCHAR_ GETCHAR_ ALLOC_ DEALLOC_ MSET_ MGET_ OPEN_ READ_ CLOSE_ EXIT_";
+
+void print_opcode_name(int i) {
+
+  int search_pos = 0;
+  
+  while(i > 0) {
+    if(opcode_names[search_pos] == '_') {
+      i = i-1;
+      search_pos = search_pos + 1;
+    } else {
+      search_pos = search_pos + 1;
+    }
+  }
+  
+  while(opcode_names[search_pos] != '_') {
+    putchar(opcode_names[search_pos]);
+  }
+}
+
+
+
+
+
+int program_size = 0;
+int *program_bytes = 0;
+int program_capacity = 0;
+
+int constants_size = 0;
+int *constants_bytes = 0;
+int constants_capacity = 0;
+
+int emit_const(int i) {
+  if(constants_size > (constants_capacity-1)) {
+    constants_capacity = grow(constants_capacity);
+    constants_bytes = realloc(constants_bytes, 4 * constants_capacity);
+  }
+}
+
+int emit_int(int i) {
+  if(program_size > (program_capacity-1)) {
+    program_capacity = grow(program_capacity);
+    program_bytes = realloc(program_bytes, 4 * program_capacity); 
+  }
+
+  int addr = program_size;
+
+  program_bytes[program_size] = i;
+  program_size = program_size + 1;
+  
+  return addr;
+}
+
+int emit_opcode(int o) {
+  return emit_int(o);
+}
+
+int get_cur_addr() {
+  return program_size;
+}
+int get_consts_addr() {
+  return constants_size;
+}
+
 
 
 // -----------------------------------
@@ -207,9 +327,10 @@ int TOK_INT = 24; int TOK_CHAR = 25;
 int TOK_VOID = 26; int TOK_CHAR_PTR = 27;
 int TOK_INT_PTR = 28; int TOK_IF = 29;
 int TOK_ELSE = 30; int TOK_WHILE = 31;
-int TOK_CONTINUE = 32; int TOK_NEQ = 33;
-int TOK_RETURN = 34; int TOK_EOF = 35;
-int TOK_COMMENT = 36; int TOK_CHAR_CONST = 36;
+int TOK_CONTINUE = 32; int TOK_BREAK = 33;
+int TOK_NEQ = 34; int TOK_RETURN = 35;
+int TOK_EOF = 36; int TOK_COMMENT = 37;
+int TOK_CHAR_CONST = 38; int TOK_STR_CONST = 39;
 
 
 
@@ -232,30 +353,32 @@ int tok_val;
 
 
 int get_num_token() {
-  if(!is_digit(look)) {
+  if(is_digit(look)) {
+
+    int val = 0;
+    while(is_digit(look)) {
+      val = val * 10;
+      val = val + (look - '0');
+      consume();
+    }
+    
+    tok_val = val;
+    return TOK_NUMBER;
+    
+  } else {
     expected("Integer");
   }
-
-  int val = 0;
-  while(is_digit(look)) {
-    val *= 10;
-    val += look - '0';
-    consume();
-  }
-
-  tok_val = val;
-  return TOK_NUMBER;
 }
 
-#define GROW(val) ((val) < 8 ? 8 : (1.5 * val))
 
 void add_char(char c) {
-  if(tok_sz >= tok_capacity) {
-    tok_capacity = GROW(tok_capacity);
+  if(tok_sz > (tok_capacity-1)) {
+    tok_capacity = grow(tok_capacity);
     tok_sym = realloc(tok_sym, tok_capacity);
   }
   
-  tok_sym[tok_sz++] = c;
+  tok_sym[tok_sz] = c;
+  tok_sz = tok_sz+1;
 }
 
 int get_lit_char() {
@@ -273,39 +396,75 @@ int get_lit_char() {
 
 
 
-char* str_pos(char* hay, char needle) {
-  int valid = 1;
-  char* ret = NULL;
-  while(valid == 1) {
-    if(*hay == 0) {
-      valid = 0;
-    } else if(*hay == needle) {
-      valid = 0;
-      ret = hay;
+int str_pos(char* hay, char needle) {
+  int i = 0;
+  int res = -1;
+  while(1) {
+    
+    if(hay[i] == 0) {
+      break;
     }
-    hay = hay+1;
+    if(hay[i] == needle) {
+      res = i;
+      break;
+    }
+    i = i+1;
   }
-  return ret;
+
+  return res;
 }
 
 int is_punctuation(char c) {
-
-  return str_pos(single_char_tok_str, c) != NULL;
+  return str_pos(single_char_tok_str, c) != -1;
 }
 
 
-int get_sym_token() {
+int is_single_quote(int token) {
+  return token == 39;
+}
+
+int is_double_quote(int token) {
+  return token == 34;
+}
+
+
+int get_lit_string() {
+  tok_sz = 0;
+  consume();
+
+  tok_val = get_consts_addr();
+
+  while(is_double_quote(look) == 0) {
+    emit_const(look);
+    consume();
+  }
   
-  if(!is_alpha(look)) {
+  emit_const(0);
+  consume();
+  
+  
+  return TOK_STR_CONST;
+}
+
+int get_sym_token() {
+
+  if(is_alpha(look) == 0) {
     expected("Symbol");
   }
   
   tok_sz = 0;
-
-  while(!is_space(look) && !is_punctuation(look)) {
+  
+  while(1) {
+    if(is_space(look)) {
+      break;
+    }
+    if(is_punctuation(look)) {
+      break;
+    }
     add_char(look);
     consume();
   }
+  
   
   add_char(0);
   
@@ -333,6 +492,9 @@ int get_sym_token() {
   if(streq(tok_sym, "continue")) {
     return TOK_CONTINUE;
   }
+  if(streq(tok_sym, "break")) {
+    return TOK_BREAK;
+  }
   
   return TOK_SYMBOL;
 }
@@ -340,32 +502,43 @@ int get_sym_token() {
 int type_to_pointer_type_token(int token) {
   if(token == TOK_INT) {
     return TOK_INT_PTR;
-  } else if (token == TOK_CHAR) {
-    return TOK_CHAR_PTR;
-  } else {
-    expected("CHAR or INT");
   }
+  if (token == TOK_CHAR) {
+    return TOK_CHAR_PTR;
+  }
+  expected("CHAR or INT");
+  
 }
 
 
 int is_type_token(int token) {
-  return (token == TOK_INT || token == TOK_CHAR || token == TOK_VOID || token == TOK_CHAR_PTR || token == TOK_INT_PTR);  
+  if(token == TOK_INT) {
+    return 1;
+  }
+  if(token == TOK_CHAR) {
+    return 1;
+  }
+  if(token == TOK_VOID) {
+    return 1;
+  }
+  if(token == TOK_CHAR_PTR) {
+    return 1;
+  }
+  if(token == TOK_INT_PTR) {
+    return 1;
+  }
+  return 0;
 }
-
-int is_single_quote(int token) {
-  return token == 39;
-}
-
-void consume_tok();
 
 
 int get_token() {
   skip_whitespace();
-  char* pos = str_pos(single_char_tok_str, look);
-
-  if(pos != NULL) {
+  int pos = str_pos(single_char_tok_str, look);
+  int token;
+  
+  if(pos != -1) {
     consume();
-    int token = pos - single_char_tok_str;
+    token = pos;
     if(token == TOK_ASSIGN) {
       if(look == '=') {
 	consume();
@@ -373,28 +546,41 @@ int get_token() {
       } else {
 	return TOK_ASSIGN;
       }
-    } else if (token == TOK_BOR) {
+    }
+    
+    if (token == TOK_BOR) {
       if(look == '|') {
 	consume();
 	return TOK_BOR;
       } else {
 	expected("|");
       }
-    } else if (token == TOK_DIV && look == '/') {
-      consume();
-      return TOK_COMMENT;
-    } else {
-      return token;
     }
+    if (token == TOK_DIV) {
+      if(look == '/') {
+	consume();
+	return TOK_COMMENT;
+      }
+    } 
+    return token;
     
-  } else if (look == -1) {
+    
+  }
+  if (look == -1) {
     return TOK_EOF;
-  } else if (is_digit(look)) {
+  }
+  if (is_digit(look)) {
     return get_num_token();
-  } else if (is_single_quote(look)) {
+  }
+  if (is_single_quote(look)) {
     return get_lit_char();
-  } else if (is_alpha(look)) {
-    int token = get_sym_token();
+  }
+  if (is_double_quote(look)) {
+    return get_lit_string();
+  }
+  if (is_alpha(look)) {
+    
+    token = get_sym_token();
     // check if it's a pointer
     if(is_type_token(token)) {
       skip_whitespace();
@@ -404,7 +590,8 @@ int get_token() {
       } 
     }
     return token;
-  } else if (look == '!') {
+  }
+  if (look == '!') {
     consume();
     if(look == '=') {
       consume();
@@ -449,7 +636,7 @@ void match_tok(int t, char* token_name) {
     print_location();
     print(" - Expected ");
     print(token_name);
-    putchar('\n');
+    putchar(nl);
     exit(1);
   }
 }
@@ -463,134 +650,67 @@ void match_tok(int t, char* token_name) {
 // --------- CODE GENERATION --------- 
 
 
-typedef enum {
-  INT,
-  CHAR,
-  INT_PTR,
-  CHAR_PTR,
-  VOID
-} type;
 
-
-// stack machine opcodes
-#define OPCODES						\
-  X(LIT, 1) X(DROP, 0) X(SWAP, 0)			\
-  X(POPENV, 1) X(PUSHENV, 1)				\
-  X(CALL, 1) X(RET, 0)					\
-  X(MKENV, 1) X(EXTEND_ENV, 0)				\
-  X(POP_EXTEND_ENV, 0)					\
-  X(ADD, 0) X(SUB, 0)   X(NEG, 0)			\
-  X(MUL, 0) X(DIV, 0)   X(MOD, 0)			\
-  X(IOR, 0) X(XOR, 0)   X(AND, 0)			\
-  X(NOT, 0)						\
-  X(BRA, 1) X(BNE, 1) X(BEQ, 1)				\
-  X(CMP, 0) X(CGT, 0) X(CLT, 0)				\
-  X(PUTCHAR, 0) X(GETCHAR, 0)				\
-  X(ALLOC, 0) X(DEALLOC, 0)				\
-  X(MSET, 0) X(MGET, 0)					\
-  X(OPEN, 0) X(READ, 0) X(CLOSE, 0)			\
-  X(EXIT, 0)
-
-
-
-
-
-typedef enum {
-#define X(nm, op) nm,
-  OPCODES
-#undef X
-} opcode;
-
-char* opcode_names[] = {
-#define X(nm, op) #nm,
-  OPCODES
-#undef X
-};
-
-int has_operand[] = {
-#define X(nm, op) op,
-  OPCODES
-#undef X
-};
-
-
-int grow(int i){
-  return (i < 8 ? 8 : (i * 1.5));
-}
-
-int program_size = 0;
-int *program_bytes = NULL;
-
-int emit_int(int i) {
-  static int program_capacity = 0;
-  if(program_size >= program_capacity) {
-    program_capacity = grow(program_capacity);
-    program_bytes = realloc(program_bytes, sizeof(int) * program_capacity); 
-  }
-
-  int addr = program_size;
-
-  program_bytes[program_size++] = i;
-  
-  return addr;
-}
-
-int emit_opcode(opcode o) {
-  return emit_int((int)o);
-}
-
-int get_cur_addr() {
-  return program_size;
-}
 
 void patch_int_at(int loc, int new_val) {
-  if(loc >= program_size) {
+  if(loc > (program_size-1)) {
     printnl("Tried to patch outside of emitted program code.");
     exit(1);
   }
   program_bytes[loc] = new_val;
 }
 
-void print_program(int disassemble) {
-  
-  
+void print_operand(int operand) {
+  print("0x");
+  puth(operand);
+  putchar('/');
+  puti(operand);
+  putchar(' ');
+}
+
+void print_program() {
   int pc = 0;
-  if(disassemble) {
+  
+  putchar(nl);
+  print("---- compiled output: ");
+  puti(program_size);
+  printnl(" bytes ----");
     
-    putchar(nl);
-    print("---- compiled output: ");
-    puti(program_size);
-    printnl(" bytes ----");
-    
-    while(pc < program_size) {
-      print("0x");
-      puth(pc);
-      print(": ");
+  while(pc < program_size) {
+    print("0x");
+    puth(pc);
+    print(": ");
 
-      opcode o = program_bytes[pc++];
-      print(opcode_names[o]);
-      putchar(' ');
-      
-      for(int i = 0; i < has_operand[o]; i++) {
-	int operand = program_bytes[pc++];
-	print("0x");
-	puth(operand);
-	putchar('/');
-	puti(operand);
-	putchar(' ');
-      }
-      putchar(nl);
-      
+    int o = program_bytes[pc];
+    pc = pc+1;
+    print_opcode_name(o);
+    putchar(' ');
+
+
+    if(o == LIT) {
+      print_operand(program_bytes[pc]);
+      pc = pc+1;
     }
-    
-    printnl("----------------------------------");
+    if(o == POPENV) {
+      print_operand(program_bytes[pc]);
+      pc = pc+1;
+    }
+    if(o == PUSH_ENV) {
+      print_operand(program_bytes[pc]);
+      pc = pc+1;
+    }
+    if(o == CALL) {
+      print_operand(program_bytes[pc]);
+      pc = pc+1;	
+    }
+      
     putchar(nl);
-    
-  } else {
-
-    fwrite(program_bytes, sizeof(int), program_size, stdout);
-
+      
   }
+    
+  printnl("----------------------------------");
+  putchar(nl);
+  
 }
 
 
@@ -598,7 +718,15 @@ void print_program(int disassemble) {
 
 
 
-type type_token_to_type(int token) {
+
+int INT = 0;
+int CHAR = 2;
+int INT_PTR = 3;
+int CHAR_PTR = 4;
+int VOID = 4;
+
+
+int type_token_to_type(int token) {
   if(token == TOK_INT) {
     return INT;
   }
@@ -633,7 +761,7 @@ typedef struct {
   int env_idx;
   int func_or_var;
   int func_num_args;
-  type typ;
+  int typ;
   int func_code_addr;
 } sym;
 
@@ -644,6 +772,7 @@ struct sym_tab {
   sym* syms;
 };
 
+int in_local_scope = 0;
 
 sym_tab* fresh_sym_tab() {
   sym_tab* res = malloc(sizeof(sym_tab));
@@ -728,7 +857,7 @@ sym* add_sym(char* name, int func_or_var,
     return old_def_sym;
   } else {
     if(cur_sym_tab->num_syms >= cur_sym_tab->syms_cap) {
-      cur_sym_tab->syms_cap = GROW(cur_sym_tab->syms_cap);
+      cur_sym_tab->syms_cap = grow(cur_sym_tab->syms_cap);
       cur_sym_tab->syms     = realloc(cur_sym_tab->syms,     
 				      sizeof(sym) * cur_sym_tab->syms_cap);
     }
@@ -804,6 +933,7 @@ int gen_func_call(char* name, int num_args) {
 void check_args(char* name, int num_args, int num_expected_args) {
   if(num_args != num_expected_args) {
     print_location();
+    putchar(' ');
     print(name);
     print("() expected ");
     puti(num_expected_args);
@@ -861,8 +991,18 @@ int func_call(char* name) {
     check_args(name, num_args, 1);
     return 1;
   }
+  if(streq(name, "realloc")) {
+    emit_opcode(REALLOC);
+    check_args(name, num_args, 2);
+    return 1;
+  }
   if(streq(name, "free")) {
     emit_opcode(DEALLOC);
+    check_args(name, num_args, 1);
+    return 0;
+  }
+  if(streq(name, "exit")) {
+    emit_opcode(EXIT);
     check_args(name, num_args, 1);
     return 0;
   }
@@ -887,7 +1027,7 @@ void ident() {
       exit(1);
     }
 
-    emit_opcode(PUSHENV);
+    emit_opcode(PUSH_ENV);
     emit_int(s->env_idx);
   }
   free(name);
@@ -909,6 +1049,10 @@ void factor() {
       return;
     } 
     if(look_tok == TOK_CHAR_CONST) {
+      consume_tok();
+      return;
+    }
+    if(look_tok == TOK_STR_CONST) {
       consume_tok();
       return;
     }
@@ -1062,7 +1206,7 @@ void lt() {
 void relexpr() {
 
   indexpr();
-
+  
   while(is_relop(look_tok)) {
     if(look_tok == TOK_EQ) {
       eq();
@@ -1153,7 +1297,7 @@ void arr_assign(char* var_name) {
   if(s->func_or_var == FUNC_SYM) {
     printnl("Attempted to assign to function.");
   }
-  emit_opcode(PUSHENV);
+  emit_opcode(PUSH_ENV);
   emit_int(s->env_idx); // grab value from array
 
   arr_idx(); // get array index
@@ -1248,8 +1392,10 @@ void func_decl(char* name, int type) {
   
   // this allows recursion
   add_func(name, num_args, type, func_addr);
-  
+
+  in_local_scope = 1;
   block();
+  in_local_scope = 0;
   
   // drop environment frame and return
   emit_opcode(RET);
@@ -1258,7 +1404,7 @@ void func_decl(char* name, int type) {
   int jmp_target = get_cur_addr();
   
   patch_int_at(jmp_target_loc, jmp_target-jmp_loc);
-  
+
   cur_sym_tab = global_sym_tab;
   
   
@@ -1270,34 +1416,49 @@ void func_decl(char* name, int type) {
 
 int in_while = 0;
 int cur_while_test_addr;
+int cur_while_bail_addr;
 
 void while_statement() {
   match_tok(TOK_WHILE, "while");
   match_tok(TOK_LPAREN, "(");
 
-  int top_loc = get_cur_addr();
+  
+  int jmp_past_bail_loc = emit_opcode(BRA);
+  int jmp_past_bail_target_loc = emit_int(0xDEAD);
+  
+  int bail_loc = emit_opcode(BRA);
+  int bail_target_loc = emit_int(0xDEAD);
+
+  int test_loc = get_cur_addr();
+
+  patch_int_at(jmp_past_bail_target_loc, test_loc-jmp_past_bail_loc);
+  
   expression();
   
   
   match_tok(TOK_RPAREN, ")");
 
-  
-  int test_loc = emit_opcode(BNE);
+  emit_opcode(BNE);
   int test_target_loc = emit_int(0xDEAD);
+
+  
   
   int old_in_while = in_while; // to handle nesting
   int old_while_test_addr = cur_while_test_addr;
+  int old_while_bail_addr = cur_while_bail_addr;
   in_while = 1;
   cur_while_test_addr = test_loc;
+  cur_while_bail_addr = bail_loc;
   block();
   in_while = old_in_while;
   cur_while_test_addr = old_while_test_addr;
-  
+  cur_while_bail_addr = old_while_bail_addr;
   
   int jmp_top_loc = emit_opcode(BRA);
-  emit_int(top_loc - jmp_top_loc);
+  emit_int(test_loc - jmp_top_loc);
   
   patch_int_at(test_target_loc, get_cur_addr() - test_loc);
+  patch_int_at(bail_target_loc, get_cur_addr() - bail_loc);
 }
 
 void if_statement() {
@@ -1359,9 +1520,23 @@ void continue_statement() {
   if(in_while) {
     int jmp_top_loc = emit_opcode(BRA);
     emit_int(cur_while_test_addr - jmp_top_loc);
+    consume_tok();
   } else {
     print_location();
     printnl("'continue' invalid outside of while loop.");
+    exit(1);
+  }
+}
+
+void break_statement() {
+  if(in_while) {
+    int jmp_break_loc = emit_opcode(BRA);
+    emit_int(cur_while_bail_addr - jmp_break_loc);
+    consume_tok();
+    match_tok(TOK_SEMICOL, ";");
+  } else {
+    print_location();
+    printnl("'break' invalid outside of while loop.");
     exit(1);
   }
 }
@@ -1377,6 +1552,8 @@ void statement() {
     consume_tok();
   } else if (look_tok == TOK_CONTINUE) {
     continue_statement();
+  } else if (look_tok == TOK_BREAK) {
+    break_statement();
   } else if(look_tok == TOK_SYMBOL) {
 
     char* sym_name = sdup(tok_sym);
@@ -1410,6 +1587,7 @@ void statement() {
     int tok_type = look_tok;
     consume_tok();
     char* name = sdup(tok_sym);
+
     match_tok(TOK_SYMBOL, "<symbol>");
 
     
@@ -1459,7 +1637,7 @@ void program() {
 
 
 typedef struct {
-  type typ;
+  int typ;
   union {
     int i;
     char c;
@@ -1494,250 +1672,229 @@ int execute_program() {
 
   while(pc < program_size) {
     int org_pc = pc; // pc of this instruction
-    opcode code = program_bytes[pc++];
+    int code = program_bytes[pc++];
 
-    switch(code) {
-    case LIT:
+    if(code == LIT) {
       if(sp == STACK_SZ) {
 	putchar(nl);
 	printnl("Stack overflow");
 	exit(1);
       }
       stack[sp++].i = program_bytes[pc++];
-      break;
-    case DROP:
+      continue;
+    }
+
+    if(code == DROP) {
       sp--;
-      break;
-    case SWAP:
-      do {
-	cell a = stack[--sp];
-	cell b = stack[--sp];
-	stack[sp++] = a;
-	stack[sp++] = b;
-      } while(0);
-      break;
-    case POPENV:
-      do {
-	int slot = program_bytes[pc++];
-	cur_env->slots[slot] = stack[--sp];
-      } while(0);
-      break;
-    case PUSHENV:
-      do {
-	int slot = program_bytes[pc++];
-	stack[sp++] = cur_env->slots[slot];
-      } while(0);
-      break;
-    case CALL:
-      do {
-	int abs_target = program_bytes[pc++];
-	int ret = pc;
-	pc = abs_target;
-	if(rsp == STACK_SZ) {
-	  putchar(nl);
-	  printnl("Return stack overflow.");
-	  exit(1);
-	}
-	rstack[rsp++] = ret;
-      } while(0);
-      break;
-    case RET:
+      continue;
+    }
+    
+    if(code == SWAP) {
+      cell a = stack[--sp];
+      cell b = stack[--sp];
+      stack[sp++] = a;
+      stack[sp++] = b;
+      continue;
+    }
+
+    if(code == POPENV) {
+      int slot = program_bytes[pc++];
+      cur_env->slots[slot] = stack[--sp];
+      continue;
+    }
+    
+    if (code == PUSH_ENV) {
+      int slot = program_bytes[pc++];
+      stack[sp++] = cur_env->slots[slot];
+      continue;
+    }
+     
+    if(code == CALL) {
+      int abs_target = program_bytes[pc++];
+      int ret = pc;
+      pc = abs_target;
+      if(rsp == STACK_SZ) {
+	putchar(nl);
+	printnl("Return stack overflow.");
+	exit(1);
+      }
+      rstack[rsp++] = ret;
+      continue;
+    }
+     
+    if(code == RET) {
       pc = rstack[--rsp];
       if(cur_env->parent == NULL) {
 	printnl("Attempt to return from global scope.");
 	exit(1);
       }
       cur_env = cur_env->parent;
-      break;
-    case MKENV:
-      do {
-	int size = program_bytes[pc++];
-	env* old_env = cur_env;
-	int cap = GROW(size);
-	cur_env = malloc(sizeof(env) + (sizeof(cell) * cap));
-	cur_env->parent = old_env;
-	cur_env->cur_size = size;
-	cur_env->cur_cap = cap;
-      } while(0);
-      break;
+      continue;
+    }
+    
+    if(code == MKENV) {
+      int size = program_bytes[pc++];
+      env* old_env = cur_env;
+      int cap = grow(size);
+      cur_env = malloc(sizeof(env) + (sizeof(cell) * cap));
+      cur_env->parent = old_env;
+      cur_env->cur_size = size;
+      cur_env->cur_cap = cap;
+      continue;
+    }
       
-    case EXTEND_ENV:
-      do {
-	int new_sz = ++cur_env->cur_size;
-	if(new_sz >= cur_env->cur_cap) {
-	  cur_env->cur_cap = GROW(cur_env->cur_cap);
-	  cur_env = realloc(cur_env, (sizeof(env) + (sizeof(cell) * cur_env->cur_cap)));
-	}
-      } while(0);
-      break;
+    if(code == EXTEND_ENV) {
+      int new_sz = ++cur_env->cur_size;
+      if(new_sz >= cur_env->cur_cap) {
+	cur_env->cur_cap = grow(cur_env->cur_cap);
+	cur_env = realloc(cur_env, (sizeof(env) + (sizeof(cell) * cur_env->cur_cap)));
+      }
+      continue;
+    }
+    
+    if(code == ADD) {
+      int b = stack[--sp].i;
+      int a = stack[--sp].i;
+      stack[sp++].i = a + b;
+      continue;
+    }
+    
+    if(code == SUB) {
+      int b = stack[--sp].i;
+      int a = stack[--sp].i;
+      stack[sp++].i = a - b;
+      continue;
+    }
+     
+    if(code == MUL) {
+      int b = stack[--sp].i;
+      int a = stack[--sp].i;
+      stack[sp++].i = a * b;	
+      continue;
+    }
 
-    case POP_EXTEND_ENV:
-      do {
-	int new_sz = ++cur_env->cur_size;
-	if(new_sz >= cur_env->cur_cap) {
-	  cur_env->cur_cap = GROW(cur_env->cur_cap);
-	  cur_env = realloc(cur_env, (sizeof(env) + (sizeof(cell) * cur_env->cur_cap)));
-	}
-	cur_env->slots[new_sz-1] = stack[--sp];
-      } while(0);
-      break;
-            
-      case ADD:
-	do {
-	  int b = stack[--sp].i;
-	  int a = stack[--sp].i;
-	  stack[sp++].i = a + b;
-	} while(0);
-	break;
-
-    case SUB:
-      do {
-	
-	int b = stack[--sp].i;
-	int a = stack[--sp].i;
-	stack[sp++].i = a - b;
-      } while(0);
-      break;
-
-    case MUL:
-      do {
-	int b = stack[--sp].i;
-	int a = stack[--sp].i;
-	stack[sp++].i = a * b;	
-      } while(0);
-      break;
-
-    case DIV:
-      do {
-	int b = stack[--sp].i;
-	int a = stack[--sp].i;
-	stack[sp++].i = a / b;
-      } while(0);
-      break;
-      
-    case MOD:
-      do {
-	int b = stack[--sp].i;
+    if(code == DIV) {
+      int b = stack[--sp].i;
+      int a = stack[--sp].i;
+      stack[sp++].i = a / b;
+      continue;
+    }
+          
+    if(code == MOD) {
+      int b = stack[--sp].i;
 	int a = stack[--sp].i;
 	stack[sp++].i = a % b;
-      } while(0);
-      break;
+	continue;
+    }
 
-    case IOR:
-      do {
-	int b = stack[--sp].i;
-	int a = stack[--sp].i;
-	stack[sp++].i = b | a;
-      } while(0);
-      break;
+    if(code == IOR) {
+      int b = stack[--sp].i;
+      int a = stack[--sp].i;
+      stack[sp++].i = b | a;
+      continue;
+    }
 
-    case NEG:
-      do {
-	int i = stack[--sp].i;
-	stack[sp++].i = -i;
-      } while(0);
+    if(code == NEG) {
+      int i = stack[--sp].i;
+      stack[sp++].i = -i;
+      continue;
+    }
 
-    case BRA:
-      do {
-	int rel_off = program_bytes[pc++];
+    if(code == BRA) {
+      int rel_off = program_bytes[pc++];
+      pc = org_pc + rel_off;
+      continue;
+    }
+     
+    if(code == BNE) {
+      int rel_off = program_bytes[pc++];
+      if(stack[--sp].i == 0) {
 	pc = org_pc + rel_off;
-	
-      } while(0);
-      break;
+      }
+      continue;
+    }
+    
+    if(code == BEQ) {
+      int rel_off = program_bytes[pc++];
+      if(stack[--sp].i != 0) {
+	pc = org_pc + rel_off;
+      }
+      continue;
+    }
 
-    case BNE:
-      do {
-	int rel_off = program_bytes[pc++];
-	if(stack[--sp].i == 0) {
-	  pc = org_pc + rel_off;
-	}
-      } while(0);
-      break;
+    if(code == CMP) {
+      int val_b = stack[--sp].i;
+      int val_a = stack[--sp].i;
+      stack[sp++].i = (val_b == val_a) ? 1 : 0;
+      continue;
+    }
 
-    case BEQ:
-      do {
-	int rel_off = program_bytes[pc++];
-	if(stack[--sp].i != 0) {
-	  pc = org_pc + rel_off;
-	}
-      } while(0);
-      break;
+    if(code == CLT) {
+      int val_b = stack[--sp].i;
+      int val_a = stack[--sp].i;
+      stack[sp++].i = (val_a < val_b) ? 1 : 0;
+      continue;
+    }      
 
-    case CMP:
-      do {
-	int val_b = stack[--sp].i;
-	int val_a = stack[--sp].i;
-	stack[sp++].i = (val_b == val_a) ? 1 : 0;
-      } while(0);
-      break;
+    if(code == CGT) {
+      int val_b = stack[--sp].i;
+      int val_a = stack[--sp].i;
+      stack[sp++].i = (val_a > val_b) ? 1 : 0;
+      continue;
+    }
 
-    case CLT:
-      do {
-	int val_b = stack[--sp].i;
-	int val_a = stack[--sp].i;
-	stack[sp++].i = (val_a < val_b) ? 1 : 0;
-      } while(0);
-      break;
+    if(code == NOT) {
+      int a = stack[--sp].i;
+      stack[sp++].i = !a;
+      continue;
+    }
 
-      
-
-    case CGT:
-      do {
-	int val_b = stack[--sp].i;
-	int val_a = stack[--sp].i;
-	stack[sp++].i = (val_a > val_b) ? 1 : 0;
-      } while(0);
-      break;  
-
-    case NOT:
-      do {
-	int a = stack[--sp].i;
-	stack[sp++].i = !a;
-      } while(0);
-      break;
-
-    case PUTCHAR:
+    if(code == PUTCHAR) {
       putchar(stack[--sp].c);
-      break;
+      continue;
+    }
 
-    case GETCHAR:
+    if(code == GETCHAR) {
       stack[sp++].i = getchar();
-      break;
+      continue;
+    }
 
-    case MSET: do {
+    if(code == MSET) {
 	int val = stack[--sp].i;
 	int* addr = stack[--sp].ip;
 	addr[0] = val;
-      } while(0);
-      break;
-
-    case MGET: do {
-	int* val = stack[--sp].ip;
-	stack[sp++].i = val[0];
-      } while(0);
-      break;
-      
-    case EXIT:
-      return stack[--sp].i;
-      break;
-
-    case ALLOC: do {
-	int bytes = stack[--sp].i; // number of bytes from stack
-	int* allocated = calloc(bytes, 1); // allocate that number of bytes
-	stack[sp++].ip = allocated;
-	
-      } while(0);
-      break;
-    case DEALLOC: do {
-	void* ptr = stack[--sp].vp;
-	free(ptr);
-      } while(0);
-      break;
-    default:
-      print("Unexpected opcode ");
-      printnl(opcode_names[code]);
-      exit(1);
+	continue;
     }
+
+
+    if(code == MGET) {
+      int* val = stack[--sp].ip;
+      stack[sp++].i = val[0];
+      continue;
+    }
+      
+    if(code == EXIT) {
+      return stack[--sp].i;
+    }
+    
+    if(code == ALLOC) {
+      int bytes = stack[--sp].i; // number of bytes from stack
+      int* allocated = calloc(bytes, 1); // allocate that number of bytes
+      stack[sp++].ip = allocated;
+      continue;
+    }
+    
+    if(code == DEALLOC) {
+      void* ptr = stack[--sp].vp;
+      free(ptr);
+      continue;
+    }
+
+    print("Unexpected opcode ");
+    print_opcode_name(code);
+    putchar(nl);
+    exit(1);
+    
   }
 
   return 0;
@@ -1794,13 +1951,9 @@ int main(int argc, char** argv) {
   program();
 
   if(execute) {
-    if(disassemble) {
-      printnl("Cannot execute and show disassembled output at the same time.");
-      exit(1);
-    }
     return execute_program();
   } else {
-    print_program(disassemble);
+    print_program();
   }   
 
 }
