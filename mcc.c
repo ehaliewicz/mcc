@@ -497,7 +497,7 @@ sym* find_existing_sym(char* name) {
 void expression();
 
 
-void func_call(char* name) {
+int func_call(char* name) {
   match_tok(TOK_LPAREN);
   int num_args = 0;
     
@@ -523,6 +523,7 @@ void func_call(char* name) {
     } else {
       emit_opcode(PUTC);
     }
+    return 0;
   } else if (streq(name, "read")  || streq(name, "readc")) {
     if(num_args != 0) {
       printf("Tried to apply %s() to one or more arguments.\n", name);
@@ -533,6 +534,7 @@ void func_call(char* name) {
     } else {
       emit_opcode(READC);
     }
+    return 1;
   } else {
     sym* s = find_existing_sym(name);
     if(s->func_or_var != FUNC) {
@@ -554,7 +556,8 @@ void func_call(char* name) {
 				 s->num_resolve_addrs+1);
       s->resolve_addrs[s->num_resolve_addrs++] = patch_addr;
     }
-            
+    return 1;
+             
   }
 }
 
@@ -984,8 +987,9 @@ void statement() {
     // or variable assignment
     
     if (look_tok == TOK_LPAREN) {
-      func_call(sym_name);
-      emit_opcode(DROP);
+      if(func_call(sym_name)) {
+        emit_opcode(DROP);
+      }
       match_tok(TOK_SEMICOL);
     } else if (look_tok == TOK_ASSIGN) {
       var_assign(sym_name);
