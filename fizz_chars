@@ -11,7 +11,7 @@ int fizz() {
 
     if(a % 5 = 0) {
       modcheck <- 1;
-      putc('b'); putc('u'); putc('z); putc('z');
+      putc('b'); putc('u'); putc('z'); putc('z');
     }
 
     if(modcheck = 0) {
