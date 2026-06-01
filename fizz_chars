@@ -18,7 +18,7 @@ int fizz() {
       print(a);
     }
     
-    putc(10);
+    putc('\n');
     a <- a+1;
   }
   return a;
