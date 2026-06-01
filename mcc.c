@@ -1,5 +1,3 @@
-#include <ctype.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +12,7 @@ void read_file(char* file) {
 
   FILE *f = fopen(file, "rb");
   if(!f) {
-    printf("Error opening file '%s': %s\n", file, strerror(errno)); 
+    printf("Error opening file '%s'\n", file); 
     exit(1);
   }
   fseek(f, 0, SEEK_END);
@@ -57,6 +55,18 @@ void expected(char* str) __attribute__((noreturn));
 void expected(char* str) {
   printf("%i:%i - expected %s\n", line, col, str);
   exit(1);
+}
+
+int isalpha(int c) {
+  return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+}
+
+int isdigit(int c) {
+  return (c >= '0' && c <= '9');
+}
+
+int isspace(int c) {
+  return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
 void skip_whitespace() {
@@ -560,6 +570,7 @@ int func_call(char* name) {
              
   }
 }
+
 
 void ident() {
   char* name = strdup(tok_sym);
