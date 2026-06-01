@@ -1,5 +1,3 @@
-#include <ctype.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +12,7 @@ void read_file(char* file) {
 
   FILE *f = fopen(file, "rb");
   if(!f) {
-    printf("Error opening file '%s': %s\n", file, strerror(errno)); 
+    printf("Error opening file '%s'\n", file); 
     exit(1);
   }
   fseek(f, 0, SEEK_END);
@@ -57,6 +55,18 @@ void expected(char* str) __attribute__((noreturn));
 void expected(char* str) {
   printf("%i:%i - expected %s\n", line, col, str);
   exit(1);
+}
+
+int isalpha(int c) {
+  return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+}
+
+int isdigit(int c) {
+  return (c >= '0' && c <= '9');
+}
+
+int isspace(int c) {
+  return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
 void skip_whitespace() {
@@ -497,7 +507,7 @@ sym* find_existing_sym(char* name) {
 void expression();
 
 
-void func_call(char* name) {
+int func_call(char* name) {
   match_tok(TOK_LPAREN);
   int num_args = 0;
     
@@ -523,6 +533,7 @@ void func_call(char* name) {
     } else {
       emit_opcode(PUTC);
     }
+    return 0;
   } else if (streq(name, "read")  || streq(name, "readc")) {
     if(num_args != 0) {
       printf("Tried to apply %s() to one or more arguments.\n", name);
@@ -533,6 +544,7 @@ void func_call(char* name) {
     } else {
       emit_opcode(READC);
     }
+    return 1;
   } else {
     sym* s = find_existing_sym(name);
     if(s->func_or_var != FUNC) {
@@ -554,9 +566,11 @@ void func_call(char* name) {
 				 s->num_resolve_addrs+1);
       s->resolve_addrs[s->num_resolve_addrs++] = patch_addr;
     }
-            
+    return 1;
+             
   }
 }
+
 
 void ident() {
   char* name = strdup(tok_sym);
@@ -984,8 +998,9 @@ void statement() {
     // or variable assignment
     
     if (look_tok == TOK_LPAREN) {
-      func_call(sym_name);
-      emit_opcode(DROP);
+      if(func_call(sym_name)) {
+        emit_opcode(DROP);
+      }
       match_tok(TOK_SEMICOL);
     } else if (look_tok == TOK_ASSIGN) {
       var_assign(sym_name);
