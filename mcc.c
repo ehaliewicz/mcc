@@ -1071,7 +1071,6 @@ void execute_program() {
 
   while(pc < program_size) {
     opcode code = program_bytes[pc++];
-
     switch(code) {
     case LIT:
       if(sp == STACK_SZ) {
@@ -1091,13 +1090,13 @@ void execute_program() {
 	stack[sp++] = b;
       } while(0);
       break;
-    case POPENV:
+    case POPENV: // pop top value of stack into environment at slot index
       do {
 	int slot = program_bytes[pc++];
 	cur_env->slots[slot] = stack[--sp];
       } while(0);
       break;
-    case PUSHENV:
+    case PUSHENV: // push value in environment slot index onto stack
       do {
 	int slot = program_bytes[pc++];
 	stack[sp++] = cur_env->slots[slot];
@@ -1264,11 +1263,11 @@ void execute_program() {
       break;
 
     case PRINT:
-      printf("%i", stack[--sp].i);
+      printf("%i", stack[sp-1].i);
       break;
 
     case PUTC:
-      printf("%c", stack[--sp].c);
+      printf("%c", stack[sp-1].c);
       break;
 
     case READ:
